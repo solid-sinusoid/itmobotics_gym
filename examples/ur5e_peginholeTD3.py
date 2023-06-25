@@ -5,10 +5,12 @@ import time
 import numpy as np
 from itmobotics_gym.envs.single_robot_peginhole_env import SinglePegInHole
 
-from stable_baselines3 import PPO
+from stable_baselines3 import PPO, SAC, TD3, DDPG
 from stable_baselines3.common.env_checker import check_env
 from stable_baselines3.common.vec_env import DummyVecEnv, SubprocVecEnv, VecMonitor
 from stable_baselines3.common.callbacks import EvalCallback, CheckpointCallback
+from stable_baselines3.common.noise import NormalActionNoise, OrnsteinUhlenbeckActionNoise
+
 
 
 def main(opt):
@@ -43,20 +45,23 @@ def main(opt):
                 render=False,
             )
         )
-
-    model = PPO(
+    n_actions = env.action_space.shape[-1]
+    action_noise = NormalActionNoise(mean=np.zeros(n_actions), sigma=0.1 * np.ones(n_actions))
+    model = TD3(
         "MultiInputPolicy",
         env,
         verbose=1,
         seed=opt.seed,
         batch_size=opt.batch_size,
-        learning_rate=opt.learning_rate,
-        n_epochs=10,
-        n_steps=opt.n_step,
-        gae_lambda=0.9,
+        learning_rate=1e-4,
+        buffer_size=int(1e4),
+        action_noise=action_noise,
+        #n_epochs=10,
+        train_freq=(1,"step"),
+        #gae_lambda=0.9,
         gamma=0.9999,
-        max_grad_norm=5,
-        use_sde=opt.sde,
+        #max_grad_norm=5,
+        #use_sde=opt.sde,
         tensorboard_log=opt.log_prefix + f"logs/{opt.model_name}_tensorboard/",
     )
 
@@ -77,17 +82,17 @@ def parse_opt(known=False):
     parser.add_argument("--sde", action=argparse.BooleanOptionalAction)
     parser.add_argument("--novel", action=argparse.BooleanOptionalAction)
     parser.add_argument("--frame-stack-size", type=int, default=0, help="Num vec frame stack")
-    parser.add_argument("--total-timesteps", type=int, default=50_000, help="model.learn total_timesteps")
-    parser.add_argument("--batch-size", type=int, default=64, help="total batch size for all GPUs")
-    parser.add_argument("--n-step", type=int, default=128, help="PPO n_steps")
+    parser.add_argument("--total-timesteps", type=int, default=500_000, help="model.learn total_timesteps")
+    parser.add_argument("--batch-size", type=int, default=256, help="total batch size for all GPUs")
+    parser.add_argument("--n-step", type=int, default=16, help="PPO n_steps")
 
     parser.add_argument("--eval-freq", type=int, default=8192, help="eval freq")
 
-    parser.add_argument("--model-name", type=str, default="model", help="model name to save")
+    parser.add_argument("--model-name", type=str, default="modelTD31m", help="model name to save")
     parser.add_argument("--log-prefix", type=str, default="./", help="folder to save logs")
     parser.add_argument("--model-num-saves", type=int, default=10, help="Num of save")
 
-    parser.add_argument('--num-cpu', type=int, default=4, help='Num cpu')
+    parser.add_argument('--num-cpu', type=int, default=14, help='Num cpu')
 
     return parser.parse_known_args()[0] if known else parser.parse_args()
 
